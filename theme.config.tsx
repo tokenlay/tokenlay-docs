@@ -8,7 +8,7 @@ const config: DocsThemeConfig = {
   },
   docsRepositoryBase: 'https://github.com/tokenlay/tokenlay-docs/tree/main',
   footer: {
-    text: (
+    content: (
       <span>
         MIT {new Date().getFullYear()} © <a href="https://github.com/tokenlay/tokenlay" target="_blank" rel="noopener noreferrer">Tokenlay</a>
       </span>
@@ -24,7 +24,7 @@ const config: DocsThemeConfig = {
     backToTop: true,
   },
   editLink: {
-    text: 'Edit this page on GitHub →',
+    content: 'Edit this page on GitHub →',
   },
   feedback: {
     content: 'Question? Give us feedback →',
@@ -32,11 +32,6 @@ const config: DocsThemeConfig = {
   },
   search: {
     placeholder: 'Search documentation...'
-  },
-  useNextSeoProps() {
-    return {
-      titleTemplate: '%s – Tokenlay'
-    }
   },
   head: (
     <>

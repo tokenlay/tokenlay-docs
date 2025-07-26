@@ -1,4 +1,4 @@
-export default {
+const meta = {
   index: 'Home',
   introduction: 'Introduction',
   'quick-start': 'Quick Start',
@@ -15,3 +15,5 @@ export default {
     newWindow: true
   }
 }
+
+export default meta
