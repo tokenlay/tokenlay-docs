@@ -1,8 +1,20 @@
 import React from 'react'
 import { DocsThemeConfig } from 'nextra-theme-docs'
+import Image from 'next/image'
 
 const config: DocsThemeConfig = {
-  logo: <span>Tokenlay</span>,
+  logo: (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+      <Image 
+        src="/images/tokenlay-icon.svg" 
+        alt="Tokenlay Icon" 
+        width={24} 
+        height={24}
+        priority
+      />
+      <span style={{ fontWeight: 'bold', fontSize: '1.25rem' }}>Tokenlay</span>
+    </div>
+  ),
   project: {
     link: 'https://github.com/tokenlay/tokenlay',
   },
