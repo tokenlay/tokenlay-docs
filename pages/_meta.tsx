@@ -4,14 +4,16 @@ const meta = {
   'quick-start': 'Quick Start',
   guides: 'Guides',
   'api-reference': 'API Reference',
-  about: {
-    title: 'About',
-    type: 'page' as const
-  },
-  contact: {
-    title: 'Contact ↗',
+  website: {
+    title: 'Landing',
     type: 'page' as const,
-    href: 'https://twitter.com/tokenlay',
+    href: 'https://tokenlay.com',
+    newWindow: false
+  },
+  dashboard: {
+    title: 'Dashboard ↗',
+    type: 'page' as const,
+    href: 'https://dashboard.tokenlay.com',
     newWindow: true
   }
 }
