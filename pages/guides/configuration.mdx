@@ -1,0 +1,160 @@
+import { Tabs } from 'nextra/components'
+
+# Configuration Guide
+
+Learn how to configure Tokenlay for your specific needs.
+
+## Installation
+
+First, install Tokenlay:
+
+```sh npm2yarn
+npm install tokenlay
+```
+
+## Configuration Options
+
+Tokenlay supports multiple configuration formats. Choose the one that best fits your project:
+
+<Tabs items={['JavaScript', 'TypeScript', 'JSON']}>
+  <Tabs.Tab>
+```javascript
+// tokenlay.config.js
+module.exports = {
+  apiKey: process.env.TOKENLAY_API_KEY,
+  endpoint: 'https://api.tokenlay.com',
+  timeout: 30000,
+  retries: 3,
+  debug: false
+}
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```typescript
+// tokenlay.config.ts
+import type { TokenlayConfig } from 'tokenlay'
+
+const config: TokenlayConfig = {
+  apiKey: process.env.TOKENLAY_API_KEY!,
+  endpoint: 'https://api.tokenlay.com',
+  timeout: 30000,
+  retries: 3,
+  debug: false
+}
+
+export default config
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```json
+// tokenlay.config.json
+{
+  "apiKey": "${TOKENLAY_API_KEY}",
+  "endpoint": "https://api.tokenlay.com",
+  "timeout": 30000,
+  "retries": 3,
+  "debug": false
+}
+```
+  </Tabs.Tab>
+</Tabs>
+
+## Environment Variables
+
+Set up your environment variables:
+
+<Tabs items={['.env', '.env.local', 'Shell Export']}>
+  <Tabs.Tab>
+```bash
+# .env
+TOKENLAY_API_KEY=your_api_key_here
+TOKENLAY_ENDPOINT=https://api.tokenlay.com
+TOKENLAY_LOG_LEVEL=info
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```bash
+# .env.local
+TOKENLAY_API_KEY=your_api_key_here
+TOKENLAY_ENDPOINT=https://api.tokenlay.com
+TOKENLAY_LOG_LEVEL=debug
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```bash
+# Export in your shell
+export TOKENLAY_API_KEY="your_api_key_here"
+export TOKENLAY_ENDPOINT="https://api.tokenlay.com"
+export TOKENLAY_LOG_LEVEL="info"
+```
+  </Tabs.Tab>
+</Tabs>
+
+## Framework Integration
+
+### Next.js
+
+```typescript
+// pages/api/tokenlay.ts
+import { Tokenlay } from 'tokenlay'
+
+const tokenlay = new Tokenlay({
+  apiKey: process.env.TOKENLAY_API_KEY
+})
+
+export default async function handler(req, res) {
+  const result = await tokenlay.process(req.body)
+  res.json(result)
+}
+```
+
+### Express
+
+```javascript
+// server.js
+const express = require('express')
+const { Tokenlay } = require('tokenlay')
+
+const app = express()
+const tokenlay = new Tokenlay({
+  apiKey: process.env.TOKENLAY_API_KEY
+})
+
+app.post('/api/tokenlay', async (req, res) => {
+  const result = await tokenlay.process(req.body)
+  res.json(result)
+})
+```
+
+## Advanced Configuration
+
+### Custom Headers
+
+```typescript
+const tokenlay = new Tokenlay({
+  apiKey: process.env.TOKENLAY_API_KEY,
+  headers: {
+    'X-Custom-Header': 'value',
+    'User-Agent': 'MyApp/1.0'
+  }
+})
+```
+
+### Retry Configuration
+
+```typescript
+const tokenlay = new Tokenlay({
+  apiKey: process.env.TOKENLAY_API_KEY,
+  retries: 3,
+  retryDelay: 1000, // milliseconds
+  retryCondition: (error) => {
+    return error.response?.status === 429
+  }
+})
+```
+
+## Next Steps
+
+- Learn about [Authentication](/guides/authentication)
+- Explore [Error Handling](/guides/error-handling)
+- Read the full [API Reference](/api-reference)

@@ -1,0 +1,71 @@
+# Quick Start
+
+Get up and running with Tokenlay in minutes.
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- Node.js 18.0 or later
+- npm, yarn, or pnpm
+
+## Installation
+
+```sh npm2yarn
+npm install tokenlay
+```
+
+## Basic Usage
+
+Here's a simple example to get you started:
+
+```typescript
+import { Tokenlay } from 'tokenlay'
+
+const tokenlay = new Tokenlay({
+  // Your configuration
+})
+
+// Use Tokenlay
+const result = await tokenlay.process()
+```
+
+## Configuration
+
+Tokenlay can be configured with various options:
+
+```typescript
+const config = {
+  option1: 'value1',
+  option2: 'value2',
+  // More options
+}
+```
+
+## What's Next?
+
+- Explore our [Guides](/guides) for detailed tutorials
+- Check the [API Reference](/api-reference) for comprehensive documentation
+- Join our [community](#) for support and updates
+
+## Development Setup
+
+To start developing with Tokenlay:
+
+```sh npm2yarn
+npm run dev
+```
+
+For production builds:
+
+```sh npm2yarn
+npm run build
+```
+
+## Installing Additional Dependencies
+
+If you need TypeScript types:
+
+```sh npm2yarn
+npm install --save-dev @types/tokenlay
+```
