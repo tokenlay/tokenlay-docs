@@ -7,7 +7,9 @@ import { Tabs } from 'nextra/components'
 
 # Introduction
 
-**Tokenlay** is a drop-in proxy that gives you complete control over AI usage and costs. Track spending per user, enforce rate limits, and automatically route to cheaper models based on smart rules — all without changing your existing OpenAI code. Get started with just a few lines of code using your preferred language.
+**Tokenlay** is an AI operations platform that gives you complete control over AI usage and costs across your entire application. Implement sophisticated business logic like user-tier routing, dynamic rate limiting, and budget enforcement — all through a drop-in proxy that requires zero code changes.
+
+Transform basic AI calls into intelligent, business-aware operations that automatically adapt to your users, features, and spending patterns.
 
 ## Get started in minutes
 
@@ -54,14 +56,43 @@ import { Tabs } from 'nextra/components'
   </Tabs.Tab>
 </Tabs>
 
-Track costs, enforce limits, and route models — without changing your code.
-
-- **Track** costs per user, org, or feature
-- **Enforce** rate limits and spend caps
-- **Route** to cheaper models based on rules
-- **Monitor** usage in real-time
-
 > **Follow our [quick start guide](/quick-start) to be running in minutes**
+
+## What makes Tokenlay different
+
+Instead of just tracking what happened, Tokenlay **controls what happens next**.
+
+```javascript
+// No model specified - Tokenlay picks the right one based on your rules
+const client = new TokenlayOpenAI({
+  providerApiKey: process.env.OPENAI_API_KEY,
+  tokenlayKey: process.env.TOKENLAY_KEY,
+  metadata: {
+    userId: user.id,
+    tier: user.subscription, // "free", "pro", "enterprise"
+    feature: "chat_completion"
+  }
+});
+
+const response = await client.chat.completions.create({
+  messages: [{ role: "user", content: "Hello!" }],
+  metadata: { userId: "user_123", tier: "free" }
+});
+// Free user → automatically routed to gpt-3.5-turbo
+// Pro user → gets gpt-4
+// Enterprise → gets gpt-4-turbo with higher limits
+```
+
+Create rules once in the dashboard, then every request automatically follows them:
+- **Free users**: GPT-3.5, 50 requests/day, timeout at limit
+- **Pro users**: GPT-4, 500 requests/day, warning at 80%
+- **Enterprise**: GPT-4 Turbo, unlimited, real-time cost alerts
+
+**Your business logic becomes automatic**: Route expensive requests from free users to cheaper models. Give pro users higher rate limits. Block requests when budgets are exceeded. All without changing a single line of application code.
+
+**Handle limits gracefully**: When someone hits their limit, don't just error out. Timeout temporarily, warn before blocking, or downgrade to a cheaper model. Keep your users happy while protecting your costs.
+
+**See the business impact**: Track costs per customer segment, understand your AI unit economics, and spot usage patterns that matter to your bottom line.
 
 ## Bring Your Own Key (BYOK)
 
