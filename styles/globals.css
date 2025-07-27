@@ -3,15 +3,17 @@
 @tailwind utilities;
 
 :root {
-  /* Custom primary color - Amber/Orange matching Tokenlay icon #F59E0B */
+  /* Light mode - darker orange for better contrast against white background */
   --nextra-primary-hue: 38deg;
-  --nextra-primary-saturation: 91%;
+  --nextra-primary-saturation: 92%;
+  --nextra-primary-lightness: 44%;
 }
 
 .dark {
-  /* Slightly muted amber for dark mode for better readability */
+  /* Dark mode - brighter orange that matches icon #F59E0B on dark backgrounds */
   --nextra-primary-hue: 38deg;
-  --nextra-primary-saturation: 85%;
+  --nextra-primary-saturation: 91%;
+  --nextra-primary-lightness: 50%;
 }
 
 html {
