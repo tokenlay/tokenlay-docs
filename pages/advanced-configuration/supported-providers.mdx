@@ -1,0 +1,201 @@
+import Head from 'next/head'
+
+<Head>
+  <title>Supported Providers | Tokenlay</title>
+</Head>
+
+# Supported Providers
+
+Complete list of AI providers supported by Tokenlay, including configuration patterns and model availability.
+
+## Provider Overview
+
+Tokenlay supports all major AI providers through a unified API interface. Each provider can be configured using specific key parameters or automatic inference.
+
+## OpenAI
+
+### Configuration
+
+```javascript
+const client = new TokenlayOpenAI({
+  openai_key: process.env.OPENAI_API_KEY,
+  // or
+  provider_api_key: "sk-...", // Auto-detected
+  tokenlayKey: process.env.TOKENLAY_KEY,
+});
+```
+
+### Supported Models
+- GPT-4o, GPT-4o-mini
+- GPT-4, GPT-4 Turbo
+- GPT-3.5 Turbo
+- DALL-E 3, DALL-E 2
+- Whisper, TTS
+
+### Key Pattern
+- Prefix: `sk-`
+- Example: `sk-1234567890abcdef...`
+
+## Anthropic
+
+### Configuration
+
+```javascript
+const client = new TokenlayOpenAI({
+  anthropic_key: process.env.ANTHROPIC_API_KEY,
+  // or  
+  provider_api_key: "sk-ant-...", // Auto-detected
+  tokenlayKey: process.env.TOKENLAY_KEY,
+});
+```
+
+### Supported Models
+- Claude 3.5 Sonnet
+- Claude 3 Opus, Sonnet, Haiku
+- Claude 2.1, Claude 2.0
+
+### Key Pattern
+- Prefix: `sk-ant-`
+- Example: `sk-ant-1234567890abcdef...`
+
+## Google
+
+### Configuration
+
+```javascript
+const client = new TokenlayOpenAI({
+  google_key: process.env.GOOGLE_API_KEY,
+  // or
+  provider_api_key: "AIza...", // Auto-detected
+  tokenlayKey: process.env.TOKENLAY_KEY,
+});
+```
+
+### Supported Models
+- Gemini 1.5 Pro, Flash
+- Gemini 1.0 Pro
+- PaLM 2
+
+### Key Pattern
+- Prefix: `AIza`
+- Example: `AIzaSy1234567890abcdef...`
+
+## AWS Bedrock
+
+### Configuration
+
+```javascript
+const client = new TokenlayOpenAI({
+  aws_access_key: process.env.AWS_ACCESS_KEY_ID,
+  aws_secret_key: process.env.AWS_SECRET_ACCESS_KEY,
+  aws_region: process.env.AWS_REGION,
+  tokenlayKey: process.env.TOKENLAY_KEY,
+});
+```
+
+### Supported Models
+- Claude 3.5 Sonnet (Bedrock)
+- Claude 3 Opus, Sonnet, Haiku (Bedrock)
+- Titan Text, Titan Embeddings
+- Llama 2, Llama 3
+
+### Key Pattern
+- Prefix: `AKIA`
+- Example: `AKIA1234567890ABCDEF`
+
+## Azure OpenAI
+
+### Configuration
+
+```javascript
+const client = new TokenlayOpenAI({
+  azure_key: process.env.AZURE_OPENAI_KEY,
+  azure_base_url: "https://your-resource.openai.azure.com",
+  tokenlayKey: process.env.TOKENLAY_KEY,
+});
+```
+
+### Supported Models
+- GPT-4o, GPT-4 (Azure deployments)
+- GPT-3.5 Turbo (Azure deployments)
+- DALL-E 3 (Azure deployments)
+
+### Key Pattern
+- Custom format (varies by Azure setup)
+- Requires explicit `azure_key` parameter
+
+## Cohere
+
+### Configuration
+
+```javascript
+const client = new TokenlayOpenAI({
+  cohere_key: process.env.COHERE_API_KEY,
+  tokenlayKey: process.env.TOKENLAY_KEY,
+});
+```
+
+### Supported Models
+- Command R+, Command R
+- Command Light, Command
+- Embed v3, Embed v2
+
+## OpenRouter
+
+### Configuration
+
+```javascript
+const client = new TokenlayOpenAI({
+  provider_api_key: process.env.OPENROUTER_API_KEY,
+  provider_base_url: "https://openrouter.ai/api/v1",
+  tokenlayKey: process.env.TOKENLAY_KEY,
+});
+```
+
+### Supported Models
+- All models available on OpenRouter platform
+- Dynamic model routing
+
+## Multi-Provider Setup
+
+Configure multiple providers in a single client:
+
+```javascript
+const client = new TokenlayOpenAI({
+  openai_key: process.env.OPENAI_API_KEY,
+  anthropic_key: process.env.ANTHROPIC_API_KEY,
+  google_key: process.env.GOOGLE_API_KEY,
+  tokenlayKey: process.env.TOKENLAY_KEY,
+});
+```
+
+Tokenlay will automatically route requests to the appropriate provider based on the model specified in your API calls.
+
+## Provider Detection Summary
+
+| Provider | Key Prefix | Parameter Name | Auto-Detection |
+|----------|------------|----------------|----------------|
+| OpenAI | `sk-` | `openai_key` | ✅ |
+| Anthropic | `sk-ant-` | `anthropic_key` | ✅ |
+| Google | `AIza` | `google_key` | ✅ |
+| AWS Bedrock | `AKIA` | `aws_access_key` | ✅ |
+| Azure OpenAI | Custom | `azure_key` | ❌ |
+| Cohere | Custom | `cohere_key` | ❌ |
+| OpenRouter | Custom | `provider_api_key` | ❌ |
+
+## Provider-Specific Notes
+
+### AWS Bedrock
+- Requires AWS credentials (access key, secret key, region)
+- Models use Bedrock-specific identifiers
+- Additional IAM permissions may be required
+
+### Azure OpenAI  
+- Requires custom base URL for your Azure resource
+- Model names match your Azure deployment names
+- No automatic key detection due to custom format
+
+### OpenRouter
+- Provides access to hundreds of models from various providers
+- Uses OpenAI-compatible API format
+- Requires explicit base URL configuration

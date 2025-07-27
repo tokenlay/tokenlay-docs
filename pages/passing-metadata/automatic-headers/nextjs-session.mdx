@@ -1,0 +1,423 @@
+import Head from 'next/head'
+
+<Head>
+  <title>Next.js + Session | Tokenlay</title>
+</Head>
+
+# Next.js + Session
+
+Integrate with Next.js authentication systems to automatically pass user context using middleware.
+
+## Next.js Middleware Approach
+
+### Basic Setup
+
+```javascript
+// middleware.js
+import { NextResponse } from 'next/server'
+import { getToken } from 'next-auth/jwt'
+
+export async function middleware(request) {
+  const token = await getToken({ req: request })
+  
+  if (token) {
+    // Add user context to headers for API routes
+    const requestHeaders = new Headers(request.headers)
+    requestHeaders.set('User-ID', token.sub)
+    requestHeaders.set('User-Email', token.email)
+    requestHeaders.set('User-Role', token.role || 'user')
+    requestHeaders.set('Organization-ID', token.organizationId || '')
+    
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    })
+  }
+  
+  return NextResponse.next()
+}
+
+export const config = {
+  matcher: '/api/:path*'
+}
+```
+
+### API Route Integration
+
+```javascript
+// pages/api/tokenlay/process.js
+import { Tokenlay } from 'tokenlay'
+
+const tokenlay = new Tokenlay({
+  apiKey: process.env.TOKENLAY_API_KEY
+})
+
+export default async function handler(req, res) {
+  try {
+    // Headers automatically set by middleware
+    const userHeaders = extractUserHeaders(req.headers)
+    
+    const result = await tokenlay.process(req.body, {
+      headers: userHeaders
+    })
+    
+    res.json(result)
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+}
+
+function extractUserHeaders(headers) {
+  return {
+    'User-ID': headers['user-id'],
+    'User-Email': headers['user-email'],
+    'User-Role': headers['user-role'],
+    'Organization-ID': headers['organization-id']
+  }
+}
+```
+
+## NextAuth.js Integration
+
+### Setup with NextAuth.js
+
+```npm2yarn
+npm install next-auth
+```
+
+```javascript
+// pages/api/auth/[...nextauth].js
+import NextAuth from 'next-auth'
+import CredentialsProvider from 'next-auth/providers/credentials'
+
+export default NextAuth({
+  providers: [
+    CredentialsProvider({
+      name: 'credentials',
+      credentials: {
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' }
+      },
+      async authorize(credentials) {
+        // Your authentication logic
+        const user = await authenticateUser(credentials)
+        
+        if (user) {
+          return {
+            id: user.id,
+            email: user.email,
+            role: user.role,
+            organizationId: user.organizationId
+          }
+        }
+        
+        return null
+      }
+    })
+  ],
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.role = user.role
+        token.organizationId = user.organizationId
+      }
+      return token
+    },
+    async session({ session, token }) {
+      session.user.id = token.sub
+      session.user.role = token.role
+      session.user.organizationId = token.organizationId
+      return session
+    }
+  }
+})
+```
+
+### Enhanced Middleware with NextAuth.js
+
+```javascript
+// middleware.js
+import { withAuth } from 'next-auth/middleware'
+
+export default withAuth(
+  function middleware(req) {
+    const token = req.nextauth.token
+    
+    if (token) {
+      const requestHeaders = new Headers(req.headers)
+      requestHeaders.set('User-ID', token.sub)
+      requestHeaders.set('User-Email', token.email)
+      requestHeaders.set('User-Role', token.role || 'user')
+      requestHeaders.set('Organization-ID', token.organizationId || '')
+      requestHeaders.set('Session-ID', token.jti || '')
+      
+      return NextResponse.next({
+        request: {
+          headers: requestHeaders,
+        },
+      })
+    }
+  },
+  {
+    callbacks: {
+      authorized: ({ token, req }) => {
+        // Allow all requests to pass through middleware
+        // Authentication will be handled per-route
+        return true
+      },
+    },
+  }
+)
+
+export const config = {
+  matcher: '/api/:path*'
+}
+```
+
+## App Router (Next.js 13+)
+
+### Server Components
+
+```javascript
+// app/api/tokenlay/route.js
+import { getServerSession } from 'next-auth'
+import { authOptions } from '../auth/[...nextauth]/route'
+import { Tokenlay } from 'tokenlay'
+
+const tokenlay = new Tokenlay({
+  apiKey: process.env.TOKENLAY_API_KEY
+})
+
+export async function POST(request) {
+  try {
+    const session = await getServerSession(authOptions)
+    const data = await request.json()
+    
+    const userHeaders = session ? {
+      'User-ID': session.user.id,
+      'User-Email': session.user.email,
+      'User-Role': session.user.role,
+      'Organization-ID': session.user.organizationId
+    } : {}
+    
+    const result = await tokenlay.process(data, {
+      headers: userHeaders
+    })
+    
+    return Response.json(result)
+  } catch (error) {
+    return Response.json(
+      { error: error.message }, 
+      { status: 500 }
+    )
+  }
+}
+```
+
+### Client-Side Integration
+
+```javascript
+// components/TokenlayProcessor.jsx
+'use client'
+
+import { useSession } from 'next-auth/react'
+import { useState } from 'react'
+
+export default function TokenlayProcessor() {
+  const { data: session } = useSession()
+  const [result, setResult] = useState(null)
+  const [loading, setLoading] = useState(false)
+  
+  const processData = async (data) => {
+    setLoading(true)
+    
+    try {
+      const response = await fetch('/api/tokenlay', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+      })
+      
+      const result = await response.json()
+      setResult(result)
+    } catch (error) {
+      console.error('Processing failed:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+  
+  if (!session) {
+    return <div>Please sign in to use Tokenlay</div>
+  }
+  
+  return (
+    <div>
+      <button 
+        onClick={() => processData({ input: 'test data' })}
+        disabled={loading}
+      >
+        {loading ? 'Processing...' : 'Process Data'}
+      </button>
+      {result && <pre>{JSON.stringify(result, null, 2)}</pre>}
+    </div>
+  )
+}
+```
+
+## Custom Session Management
+
+### Cookie-Based Sessions
+
+```javascript
+// lib/session.js
+import { cookies } from 'next/headers'
+import jwt from 'jsonwebtoken'
+
+export function getSession() {
+  const cookieStore = cookies()
+  const sessionCookie = cookieStore.get('session')
+  
+  if (!sessionCookie) {
+    return null
+  }
+  
+  try {
+    const session = jwt.verify(sessionCookie.value, process.env.JWT_SECRET)
+    return session
+  } catch {
+    return null
+  }
+}
+
+export function createUserHeaders(session) {
+  if (!session) {
+    return {}
+  }
+  
+  return {
+    'User-ID': session.userId,
+    'User-Email': session.email,
+    'User-Role': session.role,
+    'Organization-ID': session.organizationId,
+    'Session-Created': session.iat?.toString()
+  }
+}
+```
+
+```javascript
+// app/api/tokenlay/route.js
+import { getSession, createUserHeaders } from '@/lib/session'
+import { Tokenlay } from 'tokenlay'
+
+const tokenlay = new Tokenlay({
+  apiKey: process.env.TOKENLAY_API_KEY
+})
+
+export async function POST(request) {
+  const session = getSession()
+  const data = await request.json()
+  
+  const result = await tokenlay.process(data, {
+    headers: createUserHeaders(session)
+  })
+  
+  return Response.json(result)
+}
+```
+
+## Error Handling
+
+### Session Validation
+
+```javascript
+// middleware.js
+import { NextResponse } from 'next/server'
+import { getToken } from 'next-auth/jwt'
+
+export async function middleware(request) {
+  try {
+    const token = await getToken({ req: request })
+    
+    if (token) {
+      // Validate token expiration
+      const now = Date.now() / 1000
+      if (token.exp && token.exp < now) {
+        // Token expired, clear headers
+        return NextResponse.next()
+      }
+      
+      // Validate required fields
+      if (!token.sub || !token.email) {
+        console.warn('Incomplete token data:', token)
+        return NextResponse.next()
+      }
+      
+      const requestHeaders = new Headers(request.headers)
+      requestHeaders.set('User-ID', token.sub)
+      requestHeaders.set('User-Email', token.email)
+      requestHeaders.set('User-Role', token.role || 'user')
+      
+      return NextResponse.next({
+        request: { headers: requestHeaders }
+      })
+    }
+  } catch (error) {
+    console.error('Middleware error:', error)
+  }
+  
+  return NextResponse.next()
+}
+```
+
+### Graceful Degradation
+
+```javascript
+// pages/api/tokenlay/process.js
+export default async function handler(req, res) {
+  try {
+    const userHeaders = extractUserHeaders(req.headers)
+    
+    // Add fallback headers for anonymous users
+    if (!userHeaders['User-ID']) {
+      userHeaders['User-ID'] = 'anonymous'
+      userHeaders['User-Role'] = 'guest'
+    }
+    
+    const result = await tokenlay.process(req.body, {
+      headers: userHeaders
+    })
+    
+    res.json(result)
+  } catch (error) {
+    if (error.code === 'AUTHENTICATION_REQUIRED') {
+      res.status(401).json({ error: 'Authentication required' })
+    } else {
+      res.status(500).json({ error: error.message })
+    }
+  }
+}
+```
+
+## Best Practices
+
+### Security
+- Always validate session data before using it
+- Use HTTPS in production
+- Implement proper CSRF protection
+- Rotate session secrets regularly
+
+### Performance
+- Cache session data when appropriate
+- Use edge functions for session validation
+- Minimize middleware processing time
+- Consider using SWR for client-side session management
+
+### Debugging
+- Log authentication events for troubleshooting
+- Include correlation IDs in headers
+- Monitor session-related errors
+- Use development-only debug headers

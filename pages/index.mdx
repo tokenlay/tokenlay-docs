@@ -1,32 +1,75 @@
 import Head from 'next/head'
+import { Tabs } from 'nextra/components'
 
 <Head>
-  <title>Home | Tokenlay</title>
+  <title>Introduction | Tokenlay</title>
 </Head>
 
-# Welcome to Tokenlay
+# Introduction
 
-Tokenlay is a modern solution for [your project description here].
+**Tokenlay** is a drop-in proxy that gives you complete control over AI usage and costs. Track spending per user, enforce rate limits, and automatically route to cheaper models based on smart rules — all without changing your existing OpenAI code. Get started with just a few lines of code using your preferred language.
 
-## Getting Started
+## Get started in minutes
 
-Get started by exploring our documentation:
+<Tabs items={['JavaScript', 'Python']}>
+  <Tabs.Tab>
+    ```npm2yarn
+    npm install @tokenlay/sdk openai
+    ```
 
-- [Introduction](/introduction) - Learn what Tokenlay is and why you should use it
-- [Quick Start](/quick-start) - Get up and running in minutes
-- [API Reference](/api-reference) - Detailed API documentation
+    ```javascript
+    import { TokenlayOpenAI } from "@tokenlay/sdk";
 
-## Features
+    const client = new TokenlayOpenAI({
+      providerApiKey: process.env.OPENAI_API_KEY,
+      tokenlayKey: process.env.TOKENLAY_KEY,
+    });
 
-- 🚀 Fast and efficient
-- 🔒 Secure by default
-- 📱 Mobile-friendly
-- 🌐 Cross-platform support
+    // Works exactly like OpenAI SDK
+    const response = await client.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [{ role: "user", content: "Hello!" }],
+    });
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    pip install tokenlay openai
+    ```
 
-## Community
+    ```python
+    from tokenlay import TokenlayOpenAI
 
-Join our community to get help, share ideas, and contribute:
+    client = TokenlayOpenAI(
+        provider_api_key="your-openai-key",
+        tokenlay_key="your-tokenlay-key"
+    )
 
-- [GitHub](https://github.com/tokenlay/tokenlay)
-- [Discord](#)
-- [Twitter](#)
+    # Works exactly like OpenAI SDK
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": "Hello!"}]
+    )
+    ```
+  </Tabs.Tab>
+</Tabs>
+
+Track costs, enforce limits, and route models — without changing your code.
+
+- **Track** costs per user, org, or feature
+- **Enforce** rate limits and spend caps
+- **Route** to cheaper models based on rules
+- **Monitor** usage in real-time
+
+> **Follow our [quick start guide](/quick-start) to be running in minutes**
+
+## Bring Your Own Key (BYOK)
+
+Tokenlay uses a bring-your-own-key model where you maintain complete control of your AI provider credentials.
+
+- **Your keys, your data** — Your API keys stay under your control. Tokenlay acts as a transparent proxy without storing credentials.
+- **No lock-in** — Switch away anytime since you own the underlying API keys and usage data.
+- **Free to use** — Tokenlay is completely free. You pay providers directly at standard rates with no markup.
+- **Compatible with all major providers** — Works with OpenAI, Anthropic, Google, AWS Bedrock, Azure OpenAI, OpenRouter, and more.
+
+[Get your free Tokenlay key](https://tokenlay.ai/signup) and start in minutes — no credit card required.

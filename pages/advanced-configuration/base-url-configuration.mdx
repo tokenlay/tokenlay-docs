@@ -1,0 +1,137 @@
+import Head from 'next/head'
+
+<Head>
+  <title>Base URL Configuration | Tokenlay</title>
+</Head>
+
+# Base URL Configuration
+
+Configure custom endpoints and base URLs for specific provider implementations, proxy setups, or alternative API endpoints.
+
+## Basic Base URL Configuration
+
+Use the `provider_base_url` parameter to specify custom endpoints:
+
+```javascript
+const client = new TokenlayOpenAI({
+  provider_api_key: process.env.OPENAI_API_KEY,
+  provider_base_url: "https://custom-proxy.example.com/v1",
+  tokenlayKey: process.env.TOKENLAY_KEY,
+});
+```
+
+## Provider-Specific Base URLs
+
+For multi-provider setups, specify base URLs for each provider:
+
+```javascript
+const client = new TokenlayOpenAI({
+  openai_key: process.env.OPENAI_API_KEY,
+  openai_base_url: "https://openai-proxy.example.com/v1",
+  
+  anthropic_key: process.env.ANTHROPIC_API_KEY,
+  anthropic_base_url: "https://anthropic-proxy.example.com/v1",
+  
+  tokenlayKey: process.env.TOKENLAY_KEY,
+});
+```
+
+## Common Use Cases
+
+### Corporate Proxy
+
+Route through corporate firewalls or security proxies:
+
+```javascript
+const client = new TokenlayOpenAI({
+  provider_api_key: process.env.OPENAI_API_KEY,
+  provider_base_url: "https://corporate-proxy.company.com/openai",
+  tokenlayKey: process.env.TOKENLAY_KEY,
+});
+```
+
+### Azure OpenAI Service
+
+Configure for Azure OpenAI endpoints:
+
+```javascript
+const client = new TokenlayOpenAI({
+  azure_key: process.env.AZURE_OPENAI_KEY,
+  azure_base_url: "https://your-resource.openai.azure.com",
+  tokenlayKey: process.env.TOKENLAY_KEY,
+});
+```
+
+### OpenRouter Integration
+
+Use OpenRouter as your provider:
+
+```javascript
+const client = new TokenlayOpenAI({
+  provider_api_key: process.env.OPENROUTER_API_KEY,
+  provider_base_url: "https://openrouter.ai/api/v1",
+  tokenlayKey: process.env.TOKENLAY_KEY,
+});
+```
+
+### Self-Hosted Models
+
+Connect to self-hosted or locally running models:
+
+```javascript
+const client = new TokenlayOpenAI({
+  provider_api_key: "local-key", // Can be any value for local models
+  provider_base_url: "http://localhost:8000/v1",
+  tokenlayKey: process.env.TOKENLAY_KEY,
+});
+```
+
+## URL Format Requirements
+
+Base URLs should follow the OpenAI API format:
+
+- Include the version path (e.g., `/v1`)
+- Use HTTPS in production
+- Ensure the endpoint accepts OpenAI-compatible requests
+
+```javascript
+// ✅ Correct format
+"https://api.openai.com/v1"
+"https://your-proxy.com/v1"
+"https://localhost:8000/v1"
+
+// ❌ Incorrect format  
+"https://api.openai.com"        // Missing /v1
+"http://prod-server.com/v1"     // HTTP in production
+"https://non-openai-api.com/v2" // Wrong API format
+```
+
+## Troubleshooting
+
+### Connection Issues
+
+Verify your base URL is accessible:
+
+```bash
+curl -H "Authorization: Bearer $API_KEY" \
+     https://your-base-url.com/v1/models
+```
+
+### Authentication Errors
+
+Ensure your API key works with the custom endpoint:
+
+```javascript
+// Test with a simple models request
+const response = await client.models.list();
+console.log(response.data);
+```
+
+### Proxy Configuration
+
+For corporate environments, you may need additional proxy settings:
+
+```javascript
+// Note: HTTP proxy settings depend on your environment
+process.env.HTTPS_PROXY = "http://corporate-proxy:8080";
+```

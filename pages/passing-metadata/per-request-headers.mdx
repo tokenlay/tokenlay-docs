@@ -1,0 +1,338 @@
+import Head from 'next/head'
+
+<Head>
+  <title>Per-Request Headers | Tokenlay</title>
+</Head>
+
+# Per-Request Headers
+
+Override or add headers for specific API calls when you need request-specific context.
+
+## Basic Usage
+
+### JavaScript/TypeScript
+
+```javascript
+import { Tokenlay } from 'tokenlay'
+
+const tokenlay = new Tokenlay({
+  apiKey: 'your-api-key',
+  defaultHeaders: {
+    'User-ID': 'user-123',
+    'Organization': 'acme-corp'
+  }
+})
+
+// Override headers for specific requests
+const result = await tokenlay.process(data, {
+  headers: {
+    'User-ID': 'different-user-456',  // Override default
+    'Request-ID': generateRequestId(), // Add new header
+    'Priority': 'high'                 // Request-specific context
+  }
+})
+```
+
+### Python
+
+```python
+from tokenlay import Tokenlay
+
+tokenlay = Tokenlay(
+    api_key="your-api-key",
+    default_headers={
+        "User-ID": "user-123",
+        "Organization": "acme-corp"
+    }
+)
+
+# Add request-specific headers
+result = await tokenlay.process(
+    data, 
+    headers={
+        "User-ID": "different-user-456",
+        "Request-ID": generate_request_id(),
+        "Priority": "high"
+    }
+)
+```
+
+### Go
+
+```go
+package main
+
+import (
+    "github.com/tokenlay/go-sdk"
+)
+
+func processWithContext(client *tokenlay.Client, data interface{}, userID string) {
+    result, err := client.Process(data, tokenlay.RequestOptions{
+        Headers: map[string]string{
+            "User-ID":    userID,
+            "Request-ID": generateRequestID(),
+            "Priority":   "high",
+        },
+    })
+}
+```
+
+## Common Use Cases
+
+### User Impersonation
+
+```javascript
+// Admin acting on behalf of another user
+const result = await tokenlay.process(data, {
+  headers: {
+    'User-ID': targetUserId,
+    'Acting-User-ID': adminUserId,
+    'Impersonation-Reason': 'customer-support'
+  }
+})
+```
+
+### Request Prioritization
+
+```javascript
+// High priority processing for premium users
+const result = await tokenlay.process(data, {
+  headers: {
+    'Priority': 'high',
+    'SLA-Tier': 'premium',
+    'Max-Wait-Time': '5000'
+  }
+})
+```
+
+### A/B Testing
+
+```javascript
+// Include experiment context
+const result = await tokenlay.process(data, {
+  headers: {
+    'Experiment-ID': 'new-algorithm-v2',
+    'Experiment-Variant': 'treatment',
+    'Experiment-Session': sessionId
+  }
+})
+```
+
+### Batch Processing
+
+```javascript
+// Process multiple items with different contexts
+const results = await Promise.all(
+  items.map(item => 
+    tokenlay.process(item.data, {
+      headers: {
+        'Batch-ID': batchId,
+        'Item-ID': item.id,
+        'Item-Priority': item.priority,
+        'Processing-Mode': 'batch'
+      }
+    })
+  )
+)
+```
+
+## Advanced Patterns
+
+### Conditional Headers
+
+```javascript
+function processWithDynamicHeaders(data, options = {}) {
+  const headers = {
+    'Request-ID': generateRequestId(),
+    'Timestamp': new Date().toISOString()
+  }
+  
+  // Add optional headers based on conditions
+  if (options.userId) {
+    headers['User-ID'] = options.userId
+  }
+  
+  if (options.priority) {
+    headers['Priority'] = options.priority
+  }
+  
+  if (options.trace) {
+    headers['Trace-ID'] = options.traceId
+    headers['Span-ID'] = options.spanId
+  }
+  
+  return tokenlay.process(data, { headers })
+}
+```
+
+### Request Context Builder
+
+```javascript
+class RequestContextBuilder {
+  constructor() {
+    this.headers = {}
+  }
+  
+  withUser(userId, role = null) {
+    this.headers['User-ID'] = userId
+    if (role) this.headers['User-Role'] = role
+    return this
+  }
+  
+  withOrganization(orgId) {
+    this.headers['Organization-ID'] = orgId
+    return this
+  }
+  
+  withTracing(traceId, spanId) {
+    this.headers['Trace-ID'] = traceId
+    this.headers['Span-ID'] = spanId
+    return this
+  }
+  
+  withPriority(level) {
+    this.headers['Priority'] = level
+    return this
+  }
+  
+  build() {
+    return { headers: { ...this.headers } }
+  }
+}
+
+// Usage
+const context = new RequestContextBuilder()
+  .withUser('user-123', 'admin')
+  .withOrganization('org-456')
+  .withPriority('high')
+  .build()
+
+const result = await tokenlay.process(data, context)
+```
+
+### Header Merging Strategies
+
+```javascript
+// Merge with default headers (default behavior)
+const result1 = await tokenlay.process(data, {
+  headers: {
+    'Custom-Header': 'value'
+    // Default headers are automatically included
+  }
+})
+
+// Replace all headers (override defaults)
+const result2 = await tokenlay.process(data, {
+  headers: {
+    'User-ID': 'user-456',
+    'Custom-Header': 'value'
+  },
+  replaceHeaders: true  // Only these headers will be sent
+})
+
+// Explicitly remove certain default headers
+const result3 = await tokenlay.process(data, {
+  headers: {
+    'Custom-Header': 'value'
+  },
+  excludeHeaders: ['Organization', 'Environment']
+})
+```
+
+## Error Handling
+
+```javascript
+async function processWithErrorHandling(data, customHeaders = {}) {
+  try {
+    const result = await tokenlay.process(data, {
+      headers: {
+        'Request-ID': generateRequestId(),
+        'Retry-Count': '0',
+        ...customHeaders
+      }
+    })
+    
+    return result
+  } catch (error) {
+    if (error.code === 'RATE_LIMIT') {
+      // Retry with lower priority
+      return tokenlay.process(data, {
+        headers: {
+          ...customHeaders,
+          'Priority': 'low',
+          'Retry-Count': '1'
+        }
+      })
+    }
+    
+    throw error
+  }
+}
+```
+
+## Testing Patterns
+
+### Mock Headers for Testing
+
+```javascript
+// Test with specific user context
+describe('User processing', () => {
+  it('should process data for premium user', async () => {
+    const result = await tokenlay.process(testData, {
+      headers: {
+        'User-ID': 'test-user-premium',
+        'User-Tier': 'premium',
+        'Test-Mode': 'true'
+      }
+    })
+    
+    expect(result.priority).toBe('high')
+  })
+})
+```
+
+### Header Validation
+
+```javascript
+function validateHeaders(headers) {
+  const required = ['User-ID', 'Request-ID']
+  const missing = required.filter(header => !headers[header])
+  
+  if (missing.length > 0) {
+    throw new Error(`Missing required headers: ${missing.join(', ')}`)
+  }
+  
+  // Validate header formats
+  if (headers['User-ID'] && !headers['User-ID'].startsWith('user-')) {
+    throw new Error('Invalid User-ID format')
+  }
+  
+  return true
+}
+
+// Usage
+const headers = {
+  'User-ID': 'user-123',
+  'Request-ID': generateRequestId()
+}
+
+validateHeaders(headers)
+const result = await tokenlay.process(data, { headers })
+```
+
+## Best Practices
+
+### Performance
+- Reuse header objects when possible to reduce object creation
+- Cache computed header values for frequently used contexts
+- Avoid excessive header overhead for high-frequency requests
+
+### Security
+- Validate all header values before sending
+- Use secure token formats for sensitive headers
+- Log header usage for security auditing
+
+### Debugging
+- Include request IDs for tracing individual requests
+- Add timestamps for request timing analysis
+- Use consistent header naming conventions

@@ -1,0 +1,76 @@
+import Head from 'next/head'
+
+<Head>
+  <title>Provider Key Inference | Tokenlay</title>
+</Head>
+
+# Provider Key Inference
+
+Tokenlay can automatically detect AI providers from your API key prefixes, making configuration seamless across multiple providers.
+
+## Automatic Detection
+
+When you use `provider_api_key`, Tokenlay attempts to infer the provider based on the key prefix:
+
+```javascript
+const client = new TokenlayOpenAI({
+  provider_api_key: "sk-...", // Detected as OpenAI
+  tokenlayKey: process.env.TOKENLAY_KEY,
+});
+```
+
+```javascript  
+const client = new TokenlayOpenAI({
+  provider_api_key: "sk-ant-...", // Detected as Anthropic
+  tokenlayKey: process.env.TOKENLAY_KEY,
+});
+```
+
+## Explicit Provider Keys
+
+For explicit control, use provider-specific key parameters:
+
+```javascript
+// OpenAI
+const client = new TokenlayOpenAI({
+  openai_key: process.env.OPENAI_API_KEY,
+  tokenlayKey: process.env.TOKENLAY_KEY,
+});
+
+// Anthropic  
+const client = new TokenlayOpenAI({
+  anthropic_key: process.env.ANTHROPIC_API_KEY,
+  tokenlayKey: process.env.TOKENLAY_KEY,
+});
+
+// Google
+const client = new TokenlayOpenAI({
+  google_key: process.env.GOOGLE_API_KEY,
+  tokenlayKey: process.env.TOKENLAY_KEY,
+});
+```
+
+## Key Prefix Patterns
+
+| Provider | Key Prefix | Parameter Name |
+|----------|------------|----------------|
+| OpenAI | `sk-` | `openai_key` |
+| Anthropic | `sk-ant-` | `anthropic_key` |
+| Google | `AIza` | `google_key` |
+| AWS Bedrock | `AKIA` | `aws_access_key` |
+| Azure OpenAI | Custom | `azure_key` |
+
+## Mixed Provider Setup
+
+You can configure multiple providers in a single client:
+
+```javascript
+const client = new TokenlayOpenAI({
+  openai_key: process.env.OPENAI_API_KEY,
+  anthropic_key: process.env.ANTHROPIC_API_KEY,
+  google_key: process.env.GOOGLE_API_KEY,
+  tokenlayKey: process.env.TOKENLAY_KEY,
+});
+```
+
+Tokenlay will route requests to the appropriate provider based on the model specified in your API calls.

@@ -1,0 +1,172 @@
+import Head from 'next/head'
+
+<Head>
+  <title>Global Headers | Tokenlay</title>
+</Head>
+
+# Global Headers
+
+Set default headers that will be included with every API request from your application.
+
+## JavaScript/TypeScript
+
+```javascript
+import { Tokenlay } from 'tokenlay'
+
+const tokenlay = new Tokenlay({
+  apiKey: 'your-api-key',
+  defaultHeaders: {
+    'User-ID': 'user-123',
+    'Organization': 'acme-corp',
+    'Environment': 'production',
+    'Client-Version': '1.0.0'
+  }
+})
+
+// All subsequent API calls will include these headers
+const result = await tokenlay.process(data)
+```
+
+## Python
+
+```python
+from tokenlay import Tokenlay
+
+tokenlay = Tokenlay(
+    api_key="your-api-key",
+    default_headers={
+        "User-ID": "user-123",
+        "Organization": "acme-corp",
+        "Environment": "production",
+        "Client-Version": "1.0.0"
+    }
+)
+
+# All subsequent API calls will include these headers
+result = await tokenlay.process(data)
+```
+
+## Go
+
+```go
+package main
+
+import (
+    "github.com/tokenlay/go-sdk"
+)
+
+func main() {
+    client := tokenlay.NewClient(tokenlay.Config{
+        APIKey: "your-api-key",
+        DefaultHeaders: map[string]string{
+            "User-ID":        "user-123",
+            "Organization":   "acme-corp",
+            "Environment":    "production",
+            "Client-Version": "1.0.0",
+        },
+    })
+    
+    // All subsequent API calls will include these headers
+    result, err := client.Process(data)
+}
+```
+
+## Environment-Based Configuration
+
+Set global headers based on environment variables:
+
+```javascript
+import { Tokenlay } from 'tokenlay'
+
+const tokenlay = new Tokenlay({
+  apiKey: process.env.TOKENLAY_API_KEY,
+  defaultHeaders: {
+    'Environment': process.env.NODE_ENV,
+    'Service-Name': process.env.SERVICE_NAME,
+    'Version': process.env.npm_package_version,
+    'Deployment-ID': process.env.DEPLOYMENT_ID
+  }
+})
+```
+
+## Dynamic Global Headers
+
+Update global headers at runtime:
+
+```javascript
+// Initial setup
+const tokenlay = new Tokenlay({
+  apiKey: 'your-api-key'
+})
+
+// Update headers when user logs in
+function setUserContext(user) {
+  tokenlay.setDefaultHeaders({
+    'User-ID': user.id,
+    'User-Role': user.role,
+    'Organization': user.organizationId,
+    'Session-ID': user.sessionId
+  })
+}
+
+// Clear headers when user logs out
+function clearUserContext() {
+  tokenlay.clearDefaultHeaders(['User-ID', 'User-Role', 'Organization', 'Session-ID'])
+}
+```
+
+## Common Header Patterns
+
+### User Identification
+```javascript
+{
+  'User-ID': 'user-123',
+  'User-Email': 'user@example.com',
+  'User-Role': 'admin'
+}
+```
+
+### Organization Context
+```javascript
+{
+  'Organization': 'acme-corp',
+  'Organization-ID': 'org-456',
+  'Tenant-ID': 'tenant-789'
+}
+```
+
+### Application Metadata
+```javascript
+{
+  'Application': 'web-app',
+  'Version': '1.2.3',
+  'Environment': 'production',
+  'Client-ID': 'client-abc'
+}
+```
+
+### Request Tracking
+```javascript
+{
+  'Correlation-ID': generateCorrelationId(),
+  'Session-ID': getSessionId(),
+  'Request-Source': 'web-frontend'
+}
+```
+
+## Best Practices
+
+### Security
+- Never include sensitive data like passwords or private keys in headers
+- Use secure token formats (JWT, opaque tokens) for authentication
+- Rotate tokens regularly and handle expiration gracefully
+
+### Performance
+- Keep header sizes minimal to reduce request overhead
+- Cache computed header values when possible
+- Avoid dynamic header generation on every request
+
+### Debugging
+- Include correlation IDs for request tracing
+- Add version information for debugging compatibility issues
+- Use consistent header naming conventions across your application

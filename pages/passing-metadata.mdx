@@ -1,0 +1,32 @@
+import Head from 'next/head'
+
+<Head>
+  <title>Passing Metadata | Tokenlay</title>
+</Head>
+
+# Passing User Context
+
+Learn how to pass user context and authentication information to Tokenlay across different frameworks and deployment environments.
+
+## Overview
+
+User context is essential for Tokenlay to understand who is making requests and to apply appropriate permissions, rate limits, and personalization. This section covers various approaches to automatically include user context with your API calls.
+
+## Approaches
+
+### [Global Headers](/passing-user-context/global-headers)
+Set default headers that will be included with every API request from your application.
+
+### [Per-Request Headers](/passing-user-context/per-request-headers)
+Override or add headers for specific API calls when you need request-specific context.
+
+### [Automatic Headers](/passing-user-context/automatic-headers)
+Automatically inject user context based on your application framework and authentication system.
+
+## Best Practices
+
+- Always validate and sanitize user context data before forwarding
+- Use HTTPS for all API communications
+- Implement proper JWT verification and expiration handling
+- Gracefully handle missing or invalid user context
+- Cache user context when possible to avoid repeated lookups

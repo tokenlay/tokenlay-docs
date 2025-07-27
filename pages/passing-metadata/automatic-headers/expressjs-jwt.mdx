@@ -1,0 +1,577 @@
+import Head from 'next/head'
+
+<Head>
+  <title>Express.js + JWT | Tokenlay</title>
+</Head>
+
+# Express.js + JWT
+
+Automatically extract JWT claims and forward them as headers in Express.js applications.
+
+## Basic JWT Middleware
+
+### Setup
+
+```npm2yarn
+npm install express jsonwebtoken
+```
+
+```javascript
+const express = require('express')
+const jwt = require('jsonwebtoken')
+const { Tokenlay } = require('tokenlay')
+
+const app = express()
+const tokenlay = new Tokenlay({
+  apiKey: process.env.TOKENLAY_API_KEY
+})
+
+app.use(express.json())
+```
+
+### JWT Extraction Middleware
+
+```javascript
+// Middleware to extract JWT and set user context
+function extractUserContext(req, res, next) {
+  const authHeader = req.headers.authorization
+  const token = authHeader?.replace('Bearer ', '')
+  
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET)
+      
+      // Set user context headers
+      req.userContext = {
+        'User-ID': decoded.sub,
+        'User-Email': decoded.email,
+        'User-Role': decoded.role || 'user',
+        'Organization-ID': decoded.org,
+        'Token-Issued': decoded.iat?.toString(),
+        'Token-Expires': decoded.exp?.toString()
+      }
+      
+      // Also attach raw claims for additional processing
+      req.user = decoded
+    } catch (error) {
+      console.error('Invalid JWT:', error.message)
+      req.userContext = {}
+    }
+  } else {
+    req.userContext = {}
+  }
+  
+  next()
+}
+
+// Apply to all API routes
+app.use('/api', extractUserContext)
+```
+
+### API Integration
+
+```javascript
+app.post('/api/process', async (req, res) => {
+  try {
+    const result = await tokenlay.process(req.body, {
+      headers: req.userContext || {}
+    })
+    
+    res.json(result)
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+app.listen(3000, () => {
+  console.log('Server running on port 3000')
+})
+```
+
+## Advanced JWT Handling
+
+### Multiple Token Sources
+
+```javascript
+function extractTokenFromRequest(req) {
+  // Check Authorization header
+  const authHeader = req.headers.authorization
+  if (authHeader?.startsWith('Bearer ')) {
+    return authHeader.slice(7)
+  }
+  
+  // Check cookies
+  if (req.cookies?.access_token) {
+    return req.cookies.access_token
+  }
+  
+  // Check query parameter (not recommended for production)
+  if (req.query.token) {
+    return req.query.token
+  }
+  
+  return null
+}
+
+function extractUserContext(req, res, next) {
+  const token = extractTokenFromRequest(req)
+  
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET)
+      
+      req.userContext = {
+        'User-ID': decoded.sub,
+        'User-Email': decoded.email,
+        'User-Role': decoded.role || 'user',
+        'Organization-ID': decoded.org,
+        'Permissions': Array.isArray(decoded.permissions) 
+          ? decoded.permissions.join(',') 
+          : '',
+        'Token-Source': getTokenSource(req)
+      }
+      
+      req.user = decoded
+    } catch (error) {
+      console.error('JWT verification failed:', error.message)
+      req.userContext = {}
+    }
+  } else {
+    req.userContext = {}
+  }
+  
+  next()
+}
+
+function getTokenSource(req) {
+  if (req.headers.authorization) return 'header'
+  if (req.cookies?.access_token) return 'cookie'
+  if (req.query.token) return 'query'
+  return 'none'
+}
+```
+
+### Token Validation and Refresh
+
+```javascript
+const jwt = require('jsonwebtoken')
+const redis = require('redis')
+
+const redisClient = redis.createClient()
+
+async function validateAndRefreshToken(req, res, next) {
+  const token = extractTokenFromRequest(req)
+  
+  if (!token) {
+    req.userContext = {}
+    return next()
+  }
+  
+  try {
+    // Check if token is blacklisted
+    const isBlacklisted = await redisClient.get(`blacklist:${token}`)
+    if (isBlacklisted) {
+      req.userContext = {}
+      return next()
+    }
+    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    
+    // Check if token expires soon (within 5 minutes)
+    const now = Math.floor(Date.now() / 1000)
+    const expiresIn = decoded.exp - now
+    
+    if (expiresIn < 300) { // 5 minutes
+      // Add refresh warning header
+      res.set('Token-Refresh-Required', 'true')
+      res.set('Token-Expires-In', expiresIn.toString())
+    }
+    
+    req.userContext = {
+      'User-ID': decoded.sub,
+      'User-Email': decoded.email,
+      'User-Role': decoded.role,
+      'Organization-ID': decoded.org,
+      'Token-Expires-In': expiresIn.toString()
+    }
+    
+    req.user = decoded
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      res.set('Token-Expired', 'true')
+    }
+    
+    console.error('Token validation failed:', error.message)
+    req.userContext = {}
+  }
+  
+  next()
+}
+```
+
+## Role-Based Access Control
+
+### Permission-Based Headers
+
+```javascript
+function enrichUserContext(req, res, next) {
+  if (req.user) {
+    const permissions = req.user.permissions || []
+    const roles = req.user.roles || [req.user.role]
+    
+    // Add permission-based headers
+    req.userContext = {
+      ...req.userContext,
+      'User-Permissions': permissions.join(','),
+      'User-Roles': roles.join(','),
+      'Is-Admin': roles.includes('admin') ? 'true' : 'false',
+      'Can-Write': permissions.includes('write') ? 'true' : 'false',
+      'Access-Level': calculateAccessLevel(roles, permissions)
+    }
+  }
+  
+  next()
+}
+
+function calculateAccessLevel(roles, permissions) {
+  if (roles.includes('admin')) return 'full'
+  if (permissions.includes('write')) return 'write'
+  if (permissions.includes('read')) return 'read'
+  return 'none'
+}
+
+// Apply after user context extraction
+app.use('/api', extractUserContext, enrichUserContext)
+```
+
+### Route-Specific Context
+
+```javascript
+function createRouteSpecificContext(requiredRole = null) {
+  return (req, res, next) => {
+    if (requiredRole && req.user?.role !== requiredRole) {
+      return res.status(403).json({ error: 'Insufficient permissions' })
+    }
+    
+    // Add route-specific context
+    req.userContext = {
+      ...req.userContext,
+      'Route-Required-Role': requiredRole || 'none',
+      'Route-Access-Granted': 'true',
+      'Request-Path': req.path,
+      'Request-Method': req.method
+    }
+    
+    next()
+  }
+}
+
+// Usage
+app.post('/api/admin/process', 
+  createRouteSpecificContext('admin'),
+  async (req, res) => {
+    const result = await tokenlay.process(req.body, {
+      headers: req.userContext
+    })
+    res.json(result)
+  }
+)
+```
+
+## Error Handling and Logging
+
+### Comprehensive Error Handling
+
+```javascript
+function handleAuthErrors(req, res, next) {
+  const authHeader = req.headers.authorization
+  const token = authHeader?.replace('Bearer ', '')
+  
+  if (!token) {
+    req.userContext = {
+      'Auth-Status': 'no-token',
+      'User-ID': 'anonymous'
+    }
+    return next()
+  }
+  
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    
+    req.userContext = {
+      'Auth-Status': 'authenticated',
+      'User-ID': decoded.sub,
+      'User-Email': decoded.email,
+      'User-Role': decoded.role,
+      'Organization-ID': decoded.org
+    }
+    
+    req.user = decoded
+  } catch (error) {
+    let authStatus = 'invalid-token'
+    
+    switch (error.name) {
+      case 'TokenExpiredError':
+        authStatus = 'token-expired'
+        break
+      case 'JsonWebTokenError':
+        authStatus = 'malformed-token'
+        break
+      case 'NotBeforeError':
+        authStatus = 'token-not-active'
+        break
+    }
+    
+    req.userContext = {
+      'Auth-Status': authStatus,
+      'Auth-Error': error.message,
+      'User-ID': 'anonymous'
+    }
+    
+    // Log authentication failures
+    console.warn('Authentication failed:', {
+      error: error.message,
+      ip: req.ip,
+      userAgent: req.get('User-Agent'),
+      path: req.path
+    })
+  }
+  
+  next()
+}
+```
+
+### Request Logging
+
+```javascript
+function logRequestContext(req, res, next) {
+  const startTime = Date.now()
+  
+  // Add request tracking
+  const requestId = generateRequestId()
+  req.userContext = {
+    ...req.userContext,
+    'Request-ID': requestId,
+    'Request-Timestamp': new Date().toISOString(),
+    'Client-IP': req.ip,
+    'User-Agent': req.get('User-Agent')?.substring(0, 100) // Truncate for header size
+  }
+  
+  // Log request
+  console.log('Request started:', {
+    requestId,
+    method: req.method,
+    path: req.path,
+    userId: req.userContext['User-ID'],
+    ip: req.ip
+  })
+  
+  // Log response when finished
+  res.on('finish', () => {
+    const duration = Date.now() - startTime
+    console.log('Request completed:', {
+      requestId,
+      statusCode: res.statusCode,
+      duration,
+      userId: req.userContext['User-ID']
+    })
+  })
+  
+  next()
+}
+
+function generateRequestId() {
+  return `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+}
+```
+
+## Performance Optimization
+
+### Token Caching
+
+```javascript
+const NodeCache = require('node-cache')
+
+// Cache decoded tokens for 5 minutes
+const tokenCache = new NodeCache({ stdTTL: 300 })
+
+function cacheEnabledUserContext(req, res, next) {
+  const token = extractTokenFromRequest(req)
+  
+  if (!token) {
+    req.userContext = {}
+    return next()
+  }
+  
+  // Check cache first
+  const cachedContext = tokenCache.get(token)
+  if (cachedContext) {
+    req.userContext = cachedContext
+    req.user = cachedContext._user // Store user separately
+    return next()
+  }
+  
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    
+    const userContext = {
+      'User-ID': decoded.sub,
+      'User-Email': decoded.email,
+      'User-Role': decoded.role,
+      'Organization-ID': decoded.org,
+      '_user': decoded // Internal use only
+    }
+    
+    // Cache for future requests
+    tokenCache.set(token, userContext)
+    
+    req.userContext = userContext
+    req.user = decoded
+  } catch (error) {
+    console.error('JWT verification failed:', error.message)
+    req.userContext = {}
+  }
+  
+  next()
+}
+```
+
+### Async Context Processing
+
+```javascript
+async function asyncUserContext(req, res, next) {
+  const token = extractTokenFromRequest(req)
+  
+  if (!token) {
+    req.userContext = {}
+    return next()
+  }
+  
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    
+    // Fetch additional user data asynchronously
+    const [userProfile, permissions] = await Promise.all([
+      fetchUserProfile(decoded.sub),
+      fetchUserPermissions(decoded.sub)
+    ])
+    
+    req.userContext = {
+      'User-ID': decoded.sub,
+      'User-Email': decoded.email,
+      'User-Role': decoded.role,
+      'Organization-ID': decoded.org,
+      'User-Department': userProfile?.department,
+      'User-Permissions': permissions?.join(',') || '',
+      'Profile-Complete': userProfile ? 'true' : 'false'
+    }
+    
+    req.user = decoded
+  } catch (error) {
+    console.error('User context processing failed:', error.message)
+    req.userContext = {}
+  }
+  
+  next()
+}
+
+async function fetchUserProfile(userId) {
+  // Implementation depends on your user store
+  // Could be database, external API, etc.
+  try {
+    const response = await fetch(`${process.env.USER_API_URL}/users/${userId}`)
+    return response.ok ? await response.json() : null
+  } catch {
+    return null
+  }
+}
+
+async function fetchUserPermissions(userId) {
+  try {
+    const response = await fetch(`${process.env.AUTH_API_URL}/permissions/${userId}`)
+    return response.ok ? await response.json() : []
+  } catch {
+    return []
+  }
+}
+```
+
+## Testing
+
+### Mock Authentication for Tests
+
+```javascript
+// test/middleware.test.js
+const request = require('supertest')
+const jwt = require('jsonwebtoken')
+const app = require('../app')
+
+describe('User Context Middleware', () => {
+  const mockUser = {
+    sub: 'user-123',
+    email: 'test@example.com',
+    role: 'admin',
+    org: 'org-456'
+  }
+  
+  const mockToken = jwt.sign(mockUser, process.env.JWT_SECRET || 'test-secret')
+  
+  it('should extract user context from valid JWT', async () => {
+    const response = await request(app)
+      .post('/api/process')
+      .set('Authorization', `Bearer ${mockToken}`)
+      .send({ data: 'test' })
+      .expect(200)
+    
+    // Verify that user context was properly extracted
+    expect(response.body).toBeDefined()
+  })
+  
+  it('should handle missing token gracefully', async () => {
+    const response = await request(app)
+      .post('/api/process')
+      .send({ data: 'test' })
+      .expect(200)
+    
+    // Should still process but with anonymous context
+    expect(response.body).toBeDefined()
+  })
+  
+  it('should reject expired tokens', async () => {
+    const expiredToken = jwt.sign(
+      { ...mockUser, exp: Math.floor(Date.now() / 1000) - 3600 }, // 1 hour ago
+      process.env.JWT_SECRET || 'test-secret'
+    )
+    
+    const response = await request(app)
+      .post('/api/process')
+      .set('Authorization', `Bearer ${expiredToken}`)
+      .send({ data: 'test' })
+      .expect(200)
+    
+    // Should process with anonymous context due to expired token
+    expect(response.body).toBeDefined()
+  })
+})
+```
+
+## Best Practices
+
+### Security
+- Always use HTTPS in production
+- Validate all JWT claims before using them
+- Implement proper token blacklisting for logout
+- Use short-lived tokens with refresh mechanisms
+- Never log full tokens or sensitive claims
+
+### Performance
+- Cache decoded tokens when appropriate
+- Use async/await for non-blocking operations
+- Consider token validation performance impact
+- Implement efficient user data fetching
+
+### Monitoring
+- Log authentication events for security analysis
+- Monitor token expiration patterns
+- Track failed authentication attempts
+- Alert on unusual authentication patterns

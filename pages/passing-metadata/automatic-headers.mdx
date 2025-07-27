@@ -1,0 +1,79 @@
+import Head from 'next/head'
+
+<Head>
+  <title>Automatic Headers | Tokenlay</title>
+</Head>
+
+# Automatic Headers
+
+Automatically inject user context based on your application framework and authentication system.
+
+## Overview
+
+Automatic headers eliminate the need to manually pass user context with every API call. Instead, middleware or framework-specific integrations extract user information from the request context and automatically include it in Tokenlay API calls.
+
+## Benefits
+
+- **Consistency**: Ensures user context is always included
+- **Security**: Reduces risk of forgetting to include authentication
+- **Maintainability**: Centralized context management
+- **Performance**: Optimized header extraction and caching
+
+## Integration Approaches
+
+### [Next.js + Session](/passing-user-context/automatic-headers/nextjs-session)
+Integrate with Next.js authentication systems using middleware to automatically pass user context.
+
+### [Express.js + JWT](/passing-user-context/automatic-headers/expressjs-jwt)
+Automatically extract JWT claims and forward them as headers in Express.js applications.
+
+### [Python (FastAPI / Flask)](/passing-user-context/automatic-headers/python-fastapi-flask)
+Use dependency injection patterns in FastAPI and request context in Flask for automatic user context.
+
+### [Edge Middleware](/passing-user-context/automatic-headers/edge-middleware)
+Handle user context in edge computing environments like Cloudflare Workers or Vercel Edge Functions.
+
+## Common Patterns
+
+### Request Lifecycle Integration
+
+```javascript
+// Middleware extracts user context
+Request → Authentication Middleware → User Context Extraction → Tokenlay API Call
+```
+
+### Context Inheritance
+
+```javascript
+// Child requests inherit parent context
+Parent Request → User Context → Child API Calls (inherit context)
+```
+
+### Fallback Strategies
+
+```javascript
+// Graceful degradation when context is unavailable
+User Context Available → Use Context
+User Context Missing → Use Default/Anonymous Context
+```
+
+## Implementation Considerations
+
+### Security
+- Always validate extracted user context
+- Handle token expiration gracefully
+- Implement proper RBAC (Role-Based Access Control)
+
+### Performance
+- Cache user context when possible
+- Avoid blocking operations in middleware
+- Consider async context propagation
+
+### Error Handling
+- Provide fallback behavior for missing context
+- Log authentication failures appropriately
+- Handle network errors in context extraction
+
+## Next Steps
+
+Choose the integration that matches your application framework and authentication system. Each integration provides detailed implementation examples and best practices.

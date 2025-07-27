@@ -1,0 +1,127 @@
+import Head from 'next/head'
+
+<Head>
+  <title>Model Parameter Behavior | Tokenlay</title>
+</Head>
+
+# Model Parameter Behavior
+
+Understand how Tokenlay handles model parameters in your API requests, including smart rules integration and response tracking.
+
+## Optional Model Parameter
+
+The `model` parameter is optional in Tokenlay requests. Your configuration determines how models are selected:
+
+```javascript
+// Explicit model specification
+const response = await client.chat.completions.create({
+  model: "gpt-4o",
+  messages: [{ role: "user", content: "Hello!" }],
+});
+
+// Omit model - let smart rules decide
+const response = await client.chat.completions.create({
+  messages: [{ role: "user", content: "Hello!" }],
+});
+```
+
+## Model Selection Behavior
+
+### When Model is Specified
+
+If you provide a `model` parameter, Tokenlay will strictly use the specified model:
+
+```javascript
+const response = await client.chat.completions.create({
+  model: "claude-3-5-sonnet-20241022", // This exact model will be used
+  messages: [{ role: "user", content: "Analyze this data" }],
+});
+```
+
+### When Model is Omitted
+
+If no `model` is specified, Tokenlay checks for smart rules to determine the appropriate model:
+
+```javascript
+// No model specified - smart rules determine selection
+const response = await client.chat.completions.create({
+  messages: [
+    { role: "user", content: "Write a creative story" }
+  ],
+});
+// Smart rules might select GPT-4o for creative tasks
+```
+
+## Smart Rules Integration
+
+Smart rules analyze your request context to select optimal models:
+
+- **Content type**: Code analysis vs creative writing
+- **Request complexity**: Simple vs complex reasoning tasks  
+- **User metadata**: Team preferences or cost constraints
+- **Historical patterns**: Previous successful model selections
+
+Learn more about configuring smart rules in the [Smart Rules](/smart-rules) section.
+
+## Response Model Tracking
+
+The model actually used is always included in the response, regardless of how it was selected:
+
+```javascript
+const response = await client.chat.completions.create({
+  messages: [{ role: "user", content: "Hello!" }],
+});
+
+console.log(response.model); // "gpt-4o-mini" (selected by smart rules)
+```
+
+This allows you to:
+- Track which models are being used automatically
+- Analyze model performance patterns
+- Debug smart rule selections
+- Monitor cost implications
+
+See [Response Formats](/response-formats) for complete response structure details.
+
+## Best Practices
+
+### Development and Testing
+
+During development, specify models explicitly for predictable behavior:
+
+```javascript
+// Development - explicit control
+const response = await client.chat.completions.create({
+  model: "gpt-4o",
+  messages: [{ role: "user", content: "Test prompt" }],
+});
+```
+
+### Production Deployments
+
+In production, leverage smart rules for optimal cost and performance:
+
+```javascript
+// Production - let smart rules optimize
+const response = await client.chat.completions.create({
+  messages: [{ role: "user", content: userInput }],
+  // Model selected automatically based on smart rules
+});
+```
+
+### Hybrid Approach
+
+Use explicit models for critical requests, smart rules for others:
+
+```javascript
+// Critical request - explicit model
+if (request.priority === 'critical') {
+  model = "gpt-4o";
+}
+// Let smart rules handle standard requests
+
+const response = await client.chat.completions.create({
+  ...(model && { model }),
+  messages: [{ role: "user", content: userInput }],
+});
+```

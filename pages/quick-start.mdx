@@ -1,4 +1,5 @@
 import Head from 'next/head'
+import { Tabs, Steps } from 'nextra/components'
 
 <Head>
   <title>Quick Start | Tokenlay</title>
@@ -6,72 +7,123 @@ import Head from 'next/head'
 
 # Quick Start
 
-Get up and running with Tokenlay in minutes.
+Get Tokenlay running in under 5 minutes. Track costs, enforce limits, and route models without changing your existing AI code.
 
-## Prerequisites
+<Steps>
 
-Before you begin, ensure you have:
+### Create your account
 
-- Node.js 18.0 or later
-- npm, yarn, or pnpm
+Sign up for a free account at [tokenlay.com](https://tokenlay.com/signup). No credit card required.
 
-## Installation
+### Generate your Tokenlay key
 
-```sh npm2yarn
-npm install tokenlay
-```
+Once logged in, generate your API key from the dashboard. You'll need this to authenticate with Tokenlay's proxy.
 
-## Basic Usage
+### Install the SDK
 
-Here's a simple example to get you started:
+Pick your preferred language and install the Tokenlay SDK alongside the OpenAI SDK.
 
-```typescript
-import { Tokenlay } from 'tokenlay'
+<Tabs items={['JavaScript', 'Python']}>
+  <Tabs.Tab>
+    ```npm2yarn
+    npm install @tokenlay/sdk openai
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```bash
+    pip install tokenlay openai
+    ```
+  </Tabs.Tab>
+</Tabs>
 
-const tokenlay = new Tokenlay({
-  // Your configuration
-})
+### Update your code
 
-// Use Tokenlay
-const result = await tokenlay.process()
-```
+Replace your existing AI client with Tokenlay's drop-in replacement. Your API calls remain exactly the same.
 
-## Configuration
+<Tabs items={['JavaScript', 'Python']}>
+  <Tabs.Tab>
+    ```javascript
+    import { TokenlayOpenAI } from "@tokenlay/sdk";
 
-Tokenlay can be configured with various options:
+    const client = new TokenlayOpenAI({
+      providerApiKey: process.env.OPENAI_API_KEY,
+      tokenlayKey: process.env.TOKENLAY_KEY,
+    });
 
-```typescript
-const config = {
-  option1: 'value1',
-  option2: 'value2',
-  // More options
-}
-```
+    // Everything else stays the same
+    const response = await client.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [{ role: "user", content: "Hello!" }],
+    });
+    ```
+  </Tabs.Tab>
+  <Tabs.Tab>
+    ```python
+    from tokenlay import TokenlayOpenAI
 
-## What's Next?
+    client = TokenlayOpenAI(
+        provider_api_key="your-openai-key",
+        tokenlay_key="your-tokenlay-key"
+    )
 
-- Explore our [Guides](/guides) for detailed tutorials
-- Check the [API Reference](/api-reference) for comprehensive documentation
-- Join our [community](#) for support and updates
+    # Everything else stays the same
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[{"role": "user", "content": "Hello!"}]
+    )
+    ```
+  </Tabs.Tab>
+</Tabs>
 
-## Development Setup
+### Send your first request
 
-To start developing with Tokenlay:
+Run your updated code. Once Tokenlay receives your requests, you'll see them appear in your [Dashboard](https://dashboard.tokenlay.com).
 
-```sh npm2yarn
-npm run dev
-```
+Your **Analytics** tab will show:
+- Real-time cost tracking
+- Usage by user, model, and feature
+- Request volume and patterns
 
-For production builds:
+</Steps>
 
-```sh npm2yarn
-npm run build
-```
+## What's next?
 
-## Installing Additional Dependencies
+Now that you're tracking requests, take these steps to unlock Tokenlay's full potential:
 
-If you need TypeScript types:
+<Steps>
 
-```sh npm2yarn
-npm install --save-dev @types/tokenlay
-```
+### Add metadata
+
+Metadata enables powerful business-aligned controls by tracking user-specific data. Add metadata in one of three ways:
+
+- **At client creation** — Set default metadata for all requests
+- **Per request** — Add metadata to individual API calls  
+- **Automatically** — Use integrations like Next.js middleware for seamless user tracking
+
+Example: Track user tier and spending to create rules like "if user is in pro tier and has spent >$50/hour, then timeout for 10 minutes."
+
+Learn more about [Passing Metadata](/passing-metadata).
+
+### Configure smart rules
+
+Use the dashboard to create intelligent rules that match your business needs. Smart rules combine metadata, usage patterns, and costs to automatically control AI access.
+
+Examples:
+- Route expensive requests from free users to cheaper models
+- Apply rate limits based on subscription tier
+- Block requests when monthly budget is exceeded
+
+Set up your [Smart Rules](/smart-rules) in the dashboard.
+
+### Handle response formats
+
+Configure how your application responds when smart rules trigger. Tokenlay can return different response types:
+
+- **Timeouts** — Temporarily block users who exceed limits
+- **Warnings** — Alert users approaching their limits while allowing requests
+- **Blocks** — Hard stops for budget or safety violations
+- **Redirects** — Route to alternative models or cached responses
+
+Learn about [Response Formats](/response-formats) and error management.
+
+</Steps>

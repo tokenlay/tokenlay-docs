@@ -1,0 +1,790 @@
+import Head from 'next/head'
+
+<Head>
+  <title>Python (FastAPI / Flask) | Tokenlay</title>
+</Head>
+
+# Python (FastAPI / Flask)
+
+Use dependency injection patterns in FastAPI and request context in Flask for automatic user context.
+
+## FastAPI with Dependency Injection
+
+### Basic Setup
+
+```python
+# requirements.txt
+fastapi
+uvicorn
+python-jose[cryptography]
+python-multipart
+tokenlay
+```
+
+### JWT Dependency
+
+```python
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from jose import JWTError, jwt
+from tokenlay import Tokenlay
+import os
+
+app = FastAPI()
+security = HTTPBearer(auto_error=False)
+tokenlay = Tokenlay(api_key=os.getenv("TOKENLAY_API_KEY"))
+
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+ALGORITHM = "HS256"
+
+async def get_user_context(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> dict:
+    """Extract user context from JWT token."""
+    
+    if not credentials:
+        return {
+            "User-ID": "anonymous",
+            "User-Role": "guest",
+            "Auth-Status": "no-token"
+        }
+    
+    try:
+        payload = jwt.decode(
+            credentials.credentials, 
+            SECRET_KEY, 
+            algorithms=[ALGORITHM]
+        )
+        
+        return {
+            "User-ID": payload.get("sub"),
+            "User-Email": payload.get("email"),
+            "User-Role": payload.get("role", "user"),
+            "Organization-ID": payload.get("org"),
+            "Auth-Status": "authenticated",
+            "Token-Type": payload.get("token_type", "access")
+        }
+        
+    except JWTError as e:
+        return {
+            "User-ID": "anonymous",
+            "User-Role": "guest",
+            "Auth-Status": "invalid-token",
+            "Auth-Error": str(e)
+        }
+
+@app.post("/api/process")
+async def process_data(
+    data: dict, 
+    user_context: dict = Depends(get_user_context)
+):
+    """Process data with automatic user context injection."""
+    
+    try:
+        result = await tokenlay.process(data, headers=user_context)
+        return result
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+```
+
+### Advanced FastAPI Patterns
+
+#### Custom User Model
+
+```python
+from pydantic import BaseModel
+from typing import Optional, List
+from fastapi import Depends
+from datetime import datetime
+
+class User(BaseModel):
+    id: str
+    email: str
+    role: str
+    organization_id: Optional[str] = None
+    permissions: List[str] = []
+    is_active: bool = True
+
+class UserContext(BaseModel):
+    user_id: str
+    user_email: str
+    user_role: str
+    organization_id: Optional[str] = None
+    permissions: str = ""
+    auth_status: str
+    request_id: str
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> Optional[User]:
+    """Get current authenticated user."""
+    
+    if not credentials:
+        return None
+    
+    try:
+        payload = jwt.decode(
+            credentials.credentials,
+            SECRET_KEY,
+            algorithms=[ALGORITHM]
+        )
+        
+        user_id = payload.get("sub")
+        if not user_id:
+            return None
+        
+        # Fetch user from database (replace with your implementation)
+        user = await get_user_by_id(user_id)
+        return user
+        
+    except JWTError:
+        return None
+
+async def create_user_context(
+    user: Optional[User] = Depends(get_current_user)
+) -> UserContext:
+    """Create user context headers from user data."""
+    
+    if not user:
+        return UserContext(
+            user_id="anonymous",
+            user_email="",
+            user_role="guest",
+            auth_status="unauthenticated",
+            request_id=generate_request_id()
+        )
+    
+    return UserContext(
+        user_id=user.id,
+        user_email=user.email,
+        user_role=user.role,
+        organization_id=user.organization_id,
+        permissions=",".join(user.permissions),
+        auth_status="authenticated",
+        request_id=generate_request_id()
+    )
+
+@app.post("/api/process")
+async def process_with_typed_context(
+    data: dict,
+    context: UserContext = Depends(create_user_context)
+):
+    """Process data with typed user context."""
+    
+    headers = context.dict(exclude_none=True, by_alias=True)
+    
+    # Convert to header format
+    header_dict = {
+        f"User-{key.replace('_', '-').title()}": str(value)
+        for key, value in headers.items()
+        if value is not None
+    }
+    
+    result = await tokenlay.process(data, headers=header_dict)
+    return result
+
+def generate_request_id() -> str:
+    """Generate unique request ID."""
+    import uuid
+    return str(uuid.uuid4())
+
+async def get_user_by_id(user_id: str) -> Optional[User]:
+    """Fetch user from database (implement based on your setup)."""
+    # Replace with actual database query
+    pass
+```
+
+#### Permission-Based Dependencies
+
+```python
+from functools import wraps
+from fastapi import HTTPException, status
+
+def require_permission(permission: str):
+    """Decorator to require specific permission."""
+    
+    async def permission_dependency(
+        user: Optional[User] = Depends(get_current_user)
+    ):
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required"
+            )
+        
+        if permission not in user.permissions:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permission '{permission}' required"
+            )
+        
+        return user
+    
+    return permission_dependency
+
+def require_role(role: str):
+    """Decorator to require specific role."""
+    
+    async def role_dependency(
+        user: Optional[User] = Depends(get_current_user)
+    ):
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required"
+            )
+        
+        if user.role != role:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Role '{role}' required"
+            )
+        
+        return user
+    
+    return role_dependency
+
+# Usage
+@app.post("/api/admin/process")
+async def admin_process(
+    data: dict,
+    user: User = Depends(require_role("admin")),
+    context: UserContext = Depends(create_user_context)
+):
+    """Admin-only processing endpoint."""
+    
+    headers = {
+        "User-ID": user.id,
+        "User-Role": user.role,
+        "Admin-Action": "true",
+        "Request-ID": context.request_id
+    }
+    
+    result = await tokenlay.process(data, headers=headers)
+    return result
+```
+
+## Flask Implementation
+
+### Basic Flask Setup
+
+```python
+from flask import Flask, request, g, jsonify
+from functools import wraps
+import jwt
+import os
+from tokenlay import Tokenlay
+
+app = Flask(__name__)
+tokenlay = Tokenlay(api_key=os.getenv("TOKENLAY_API_KEY"))
+
+def extract_user_context(f):
+    """Decorator to extract user context from JWT."""
+    
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        auth_header = request.headers.get('Authorization')
+        
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header[7:]  # Remove 'Bearer ' prefix
+            
+            try:
+                payload = jwt.decode(
+                    token, 
+                    os.getenv('JWT_SECRET'), 
+                    algorithms=["HS256"]
+                )
+                
+                g.user_context = {
+                    "User-ID": payload.get("sub"),
+                    "User-Email": payload.get("email"),
+                    "User-Role": payload.get("role", "user"),
+                    "Organization-ID": payload.get("org"),
+                    "Auth-Status": "authenticated"
+                }
+                
+                g.user = payload
+                
+            except jwt.InvalidTokenError as e:
+                g.user_context = {
+                    "User-ID": "anonymous",
+                    "User-Role": "guest",
+                    "Auth-Status": "invalid-token",
+                    "Auth-Error": str(e)
+                }
+                g.user = None
+        else:
+            g.user_context = {
+                "User-ID": "anonymous",
+                "User-Role": "guest",
+                "Auth-Status": "no-token"
+            }
+            g.user = None
+            
+        return f(*args, **kwargs)
+    
+    return decorated_function
+
+@app.route('/api/process', methods=['POST'])
+@extract_user_context
+def process_data():
+    """Process data with automatic user context."""
+    
+    try:
+        data = request.get_json()
+        result = tokenlay.process(data, headers=g.user_context)
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+```
+
+### Advanced Flask Patterns
+
+#### Blueprint with User Context
+
+```python
+from flask import Blueprint, g, request, jsonify
+from functools import wraps
+
+api_bp = Blueprint('api', __name__, url_prefix='/api')
+
+class UserContextManager:
+    """Centralized user context management."""
+    
+    @staticmethod
+    def extract_from_request():
+        """Extract user context from current request."""
+        
+        auth_header = request.headers.get('Authorization')
+        user_context = {
+            "Request-ID": generate_request_id(),
+            "Request-Timestamp": datetime.utcnow().isoformat(),
+            "Client-IP": request.remote_addr,
+            "User-Agent": request.headers.get('User-Agent', '')[:100]
+        }
+        
+        if auth_header and auth_header.startswith('Bearer '):
+            token = auth_header[7:]
+            
+            try:
+                payload = jwt.decode(
+                    token,
+                    os.getenv('JWT_SECRET'),
+                    algorithms=["HS256"]
+                )
+                
+                user_context.update({
+                    "User-ID": payload.get("sub"),
+                    "User-Email": payload.get("email"),
+                    "User-Role": payload.get("role", "user"),
+                    "Organization-ID": payload.get("org"),
+                    "Auth-Status": "authenticated",
+                    "Token-Expires": str(payload.get("exp", ""))
+                })
+                
+                return user_context, payload
+                
+            except jwt.ExpiredSignatureError:
+                user_context.update({
+                    "User-ID": "anonymous",
+                    "Auth-Status": "token-expired"
+                })
+                
+            except jwt.InvalidTokenError as e:
+                user_context.update({
+                    "User-ID": "anonymous",
+                    "Auth-Status": "invalid-token",
+                    "Auth-Error": str(e)
+                })
+        else:
+            user_context.update({
+                "User-ID": "anonymous",
+                "Auth-Status": "no-token"
+            })
+        
+        return user_context, None
+
+def with_user_context(f):
+    """Decorator that adds user context to flask.g."""
+    
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        g.user_context, g.user = UserContextManager.extract_from_request()
+        return f(*args, **kwargs)
+    
+    return decorated_function
+
+@api_bp.route('/process', methods=['POST'])
+@with_user_context
+def process_endpoint():
+    """Process data with user context."""
+    
+    data = request.get_json()
+    
+    try:
+        result = tokenlay.process(data, headers=g.user_context)
+        return jsonify(result)
+        
+    except Exception as e:
+        app.logger.error(f"Processing failed: {e}", extra={
+            "user_id": g.user_context.get("User-ID"),
+            "request_id": g.user_context.get("Request-ID")
+        })
+        return jsonify({"error": "Processing failed"}), 500
+
+# Register blueprint
+app.register_blueprint(api_bp)
+```
+
+#### Role and Permission Checking
+
+```python
+def require_auth(f):
+    """Require authenticated user."""
+    
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not g.user or g.user_context.get("Auth-Status") != "authenticated":
+            return jsonify({"error": "Authentication required"}), 401
+        return f(*args, **kwargs)
+    
+    return decorated_function
+
+def require_role(required_role):
+    """Require specific user role."""
+    
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            user_role = g.user_context.get("User-Role")
+            if user_role != required_role:
+                return jsonify({
+                    "error": f"Role '{required_role}' required"
+                }), 403
+            return f(*args, **kwargs)
+        
+        return decorated_function
+    return decorator
+
+def require_permission(permission):
+    """Require specific permission."""
+    
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            user_permissions = g.user.get("permissions", []) if g.user else []
+            if permission not in user_permissions:
+                return jsonify({
+                    "error": f"Permission '{permission}' required"
+                }), 403
+            return f(*args, **kwargs)
+        
+        return decorated_function
+    return decorator
+
+# Usage examples
+@api_bp.route('/admin/process', methods=['POST'])
+@with_user_context
+@require_auth
+@require_role('admin')
+def admin_process():
+    """Admin-only processing."""
+    
+    data = request.get_json()
+    
+    # Add admin-specific headers
+    admin_context = {
+        **g.user_context,
+        "Admin-Action": "true",
+        "Admin-User-ID": g.user_context.get("User-ID")
+    }
+    
+    result = tokenlay.process(data, headers=admin_context)
+    return jsonify(result)
+
+@api_bp.route('/premium/process', methods=['POST'])
+@with_user_context
+@require_auth
+@require_permission('premium_features')
+def premium_process():
+    """Premium feature processing."""
+    
+    data = request.get_json()
+    
+    premium_context = {
+        **g.user_context,
+        "Feature-Tier": "premium",
+        "Priority": "high"
+    }
+    
+    result = tokenlay.process(data, headers=premium_context)
+    return jsonify(result)
+```
+
+## Error Handling and Logging
+
+### Comprehensive Error Handling
+
+```python
+# FastAPI
+from fastapi import Request
+from fastapi.responses import JSONResponse
+import logging
+
+logger = logging.getLogger(__name__)
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Global exception handler with user context logging."""
+    
+    user_context = getattr(request.state, 'user_context', {})
+    
+    logger.error(
+        f"Unhandled exception: {exc}",
+        extra={
+            "user_id": user_context.get("User-ID"),
+            "request_path": str(request.url),
+            "request_method": request.method
+        }
+    )
+    
+    return JSONResponse(
+        status_code=500,
+        content={"error": "Internal server error"}
+    )
+
+# Flask
+@app.errorhandler(Exception)
+def handle_exception(e):
+    """Global exception handler for Flask."""
+    
+    user_context = getattr(g, 'user_context', {})
+    
+    app.logger.error(
+        f"Unhandled exception: {e}",
+        extra={
+            "user_id": user_context.get("User-ID"),
+            "request_path": request.path,
+            "request_method": request.method,
+            "request_id": user_context.get("Request-ID")
+        }
+    )
+    
+    return jsonify({"error": "Internal server error"}), 500
+```
+
+### Request Logging
+
+```python
+# FastAPI middleware
+from fastapi import Request, Response
+import time
+import uuid
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Log all requests with user context."""
+    
+    start_time = time.time()
+    request_id = str(uuid.uuid4())
+    
+    # Add request ID to state
+    request.state.request_id = request_id
+    
+    response = await call_next(request)
+    
+    process_time = time.time() - start_time
+    
+    user_context = getattr(request.state, 'user_context', {})
+    
+    logger.info(
+        "Request completed",
+        extra={
+            "request_id": request_id,
+            "method": request.method,
+            "path": str(request.url.path),
+            "status_code": response.status_code,
+            "process_time": process_time,
+            "user_id": user_context.get("User-ID", "anonymous")
+        }
+    )
+    
+    return response
+
+# Flask before/after request
+@app.before_request
+def before_request():
+    """Log request start."""
+    g.start_time = time.time()
+    g.request_id = str(uuid.uuid4())
+
+@app.after_request
+def after_request(response):
+    """Log request completion."""
+    
+    if hasattr(g, 'start_time'):
+        process_time = time.time() - g.start_time
+        user_context = getattr(g, 'user_context', {})
+        
+        app.logger.info(
+            "Request completed",
+            extra={
+                "request_id": getattr(g, 'request_id', 'unknown'),
+                "method": request.method,
+                "path": request.path,
+                "status_code": response.status_code,
+                "process_time": process_time,
+                "user_id": user_context.get("User-ID", "anonymous")
+            }
+        )
+    
+    return response
+```
+
+## Testing
+
+### FastAPI Testing
+
+```python
+from fastapi.testclient import TestClient
+import pytest
+from jose import jwt
+from datetime import datetime, timedelta
+
+client = TestClient(app)
+
+def create_test_token(user_data: dict) -> str:
+    """Create JWT token for testing."""
+    
+    expire = datetime.utcnow() + timedelta(hours=1)
+    token_data = {
+        **user_data,
+        "exp": expire
+    }
+    
+    return jwt.encode(token_data, SECRET_KEY, algorithm=ALGORITHM)
+
+def test_authenticated_request():
+    """Test request with valid authentication."""
+    
+    token = create_test_token({
+        "sub": "test-user-123",
+        "email": "test@example.com",
+        "role": "admin"
+    })
+    
+    response = client.post(
+        "/api/process",
+        json={"data": "test"},
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    
+    assert response.status_code == 200
+
+def test_unauthenticated_request():
+    """Test request without authentication."""
+    
+    response = client.post(
+        "/api/process",
+        json={"data": "test"}
+    )
+    
+    assert response.status_code == 200  # Should still work with anonymous context
+
+def test_invalid_token():
+    """Test request with invalid token."""
+    
+    response = client.post(
+        "/api/process",
+        json={"data": "test"},
+        headers={"Authorization": "Bearer invalid-token"}
+    )
+    
+    assert response.status_code == 200  # Should work with anonymous context
+```
+
+### Flask Testing
+
+```python
+import pytest
+from your_app import app
+
+@pytest.fixture
+def client():
+    app.config['TESTING'] = True
+    with app.test_client() as client:
+        yield client
+
+def test_user_context_extraction(client):
+    """Test user context extraction."""
+    
+    token = create_test_token({
+        "sub": "test-user-456",
+        "email": "test@example.com",
+        "role": "user"
+    })
+    
+    response = client.post(
+        '/api/process',
+        json={"data": "test"},
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    
+    assert response.status_code == 200
+
+def test_role_based_access(client):
+    """Test role-based access control."""
+    
+    user_token = create_test_token({
+        "sub": "regular-user",
+        "role": "user"
+    })
+    
+    admin_token = create_test_token({
+        "sub": "admin-user",
+        "role": "admin"
+    })
+    
+    # Regular user should be rejected
+    response = client.post(
+        '/api/admin/process',
+        json={"data": "test"},
+        headers={"Authorization": f"Bearer {user_token}"}
+    )
+    assert response.status_code == 403
+    
+    # Admin should be allowed
+    response = client.post(
+        '/api/admin/process',
+        json={"data": "test"},
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert response.status_code == 200
+```
+
+## Best Practices
+
+### Security
+- Always validate JWT signatures and expiration
+- Use environment variables for secrets
+- Implement proper CORS policies
+- Log security-related events
+- Use HTTPS in production
+
+### Performance
+- Cache user data when appropriate
+- Use async/await for I/O operations
+- Implement connection pooling for databases
+- Consider token validation performance
+- Use dependency injection for reusable components
+
+### Monitoring
+- Log all authentication events
+- Monitor token usage patterns
+- Track API performance metrics
+- Set up alerts for authentication failures
+- Use structured logging for better analysis

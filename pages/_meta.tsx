@@ -1,9 +1,12 @@
 const meta = {
-  index: 'Home',
-  introduction: 'Introduction',
+  index: 'Introduction',
   'quick-start': 'Quick Start',
-  guides: 'Guides',
-  'api-reference': 'API Reference',
+  'advanced-configuration': 'Advanced Configuration',
+  'passing-metadata': 'Passing Metadata',
+  'smart-rules': 'Smart Rules',
+  'response-formats': 'Response Formats',
+  'usage-and-monitoring': 'Usage & Monitoring',
+  faq: 'FAQ',
   website: {
     title: 'Landing',
     type: 'page' as const,
